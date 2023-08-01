@@ -1,0 +1,4 @@
+#include "Resource.h"
+
+ID_PyRuntime FILE "embed.zip"
+ID_PyGetChromeDriverCode FILE "GetChromeDriver.pyc"
