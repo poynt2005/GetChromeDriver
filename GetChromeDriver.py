@@ -5,43 +5,75 @@ import uuid
 import shutil
 import os
 import winreg
+import json
+import platform
 
 
 def get_chrome_driver(chrome_version: str) -> dict:
+    major_version = version.parse(chrome_version).major
+
     user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/115.0'
-    download_page = requests.get(
-        'https://chromedriver.chromium.org/downloads', headers={'User-Agent': user_agent})
 
-    if not download_page.status_code == 200:
-        return {'is_success': False, 'reason': 'get_chrome_download_page_failed'}
+    def is_version_matched(input_version: str, target_version: str):
+        input_version_obj = version.parse(input_version)
+        target_version_obj = version.parse(target_version)
 
-    doc = pq(download_page.text)
+        return input_version_obj.major == target_version_obj.major and input_version_obj.micro == target_version_obj.micro
 
-    target_download_url = None
-    target_version = version.parse(chrome_version)
+    if major_version >= 115:
+        download_json = requests.get(
+            'https://googlechromelabs.github.io/chrome-for-testing/known-good-versions-with-downloads.json', headers={'User-Agent': user_agent}, verify=False)
+        if not download_json.status_code == 200:
+            return {'is_success': False, 'reason': 'get_chrome_download_json_failed'}
 
-    for ltr in doc('p[dir=ltr]'):
-        anchor = ltr.find('a')
+        endpoint_data = json.loads(download_json.text)
 
-        if (not anchor is None):
-            href = pq(anchor).attr('href')
-            if 'storage.googleapis' in href:
-                span = pq(anchor).find('span')
+        if not 'versions' in endpoint_data:
+            return {'is_success': False, 'reason': 'get_chrome_info_from_endpoint_json_failed'}
 
-                if not span is None:
-                    span_text = pq(span).text().strip().lower()
+        for v in endpoint_data['versions']:
+            if is_version_matched(chrome_version, v['version']) and 'downloads' in v:
+                downloads_list = v['downloads']
+                if 'chromedriver' in downloads_list:
+                    for chromedriver_platform in downloads_list['chromedriver']:
+                        if chromedriver_platform['platform'] == 'win64':
+                            return {'is_success': True, 'url': chromedriver_platform['url']}
+        return {'is_success': False, 'reason': 'cannot_retrieve_version_from_endpoint_data'}
+    else:
+        download_page = requests.get(
+            'https://chromedriver.chromium.org/downloads', headers={'User-Agent': user_agent}, verify=False)
 
-                    if span_text.startswith('chromedriver'):
-                        search_version_text = span_text.split(' ')[-1].strip()
-                        search_version = version.parse(search_version_text)
+        if not download_page.status_code == 200:
+            return {'is_success': False, 'reason': 'get_chrome_download_page_failed'}
 
-                        if search_version.major == target_version.major and search_version.micro == target_version.micro:
-                            target_download_url = 'https://chromedriver.storage.googleapis.com/%s/chromedriver_win32.zip' % search_version_text
+        doc = pq(download_page.text)
+
+        target_download_url = None
+
+        for ltr in doc('p[dir=ltr]'):
+            anchor = ltr.find('a')
+
+            if (not anchor is None):
+                href = pq(anchor).attr('href')
+                if 'storage.googleapis' in href:
+                    span = pq(anchor).find('span')
+
+                    if not span is None:
+                        span_text = pq(span).text().strip().lower()
+
+                        if span_text.startswith('chromedriver'):
+                            search_version_text = span_text.split(
+                                ' ')[-1].strip()
+                            if is_version_matched(search_version_text, chrome_version):
+                                target_download_url = 'https://chromedriver.storage.googleapis.com/%s/chromedriver_win32.zip' % search_version_text
+
+        if not target_download_url:
+            return {'is_success': False, 'reason': 'cannot_find_target_version_to_download'}
+
+        return {'is_success': True, 'url': target_download_url}
 
     if not target_download_url:
-        return {'is_success': False, 'reason': 'cannot_find_target_version_to_download'}
-
-    return {'is_success': True, 'url': target_download_url}
+        return {'is_success': False, 'reason': 'entered_a_unexcepted_codeblock'}
 
 
 def get_chrome_version() -> dict:

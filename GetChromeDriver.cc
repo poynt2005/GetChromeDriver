@@ -7,7 +7,9 @@
 #include <memory>
 #include <stdio.h>
 #include <optional>
+#include <vector>
 #include <algorithm>
+#include <functional>
 #include "Zipper2/Zipper.h"
 #include "Resource.h"
 #include "GetChromeDriver.h"
@@ -146,7 +148,6 @@ static bool TogglePyRuntime(bool toInit = true)
         Py_SetPath(wstrPythonHomeZip.c_str());
 
         Py_Initialize();
-        PyErr_Print();
 
         auto pythonAppendScript = "import sys;sys.path.insert(0, '');sys.path.append(r'" + runtimeDir + "');";
         PyRun_SimpleString(pythonAppendScript.c_str());
@@ -280,9 +281,7 @@ int DownloadChromeDriver(const char *versionString, const char *driverPath)
     {
         return 0;
     }
-
     auto pyGetChromeDriverUrlResult = PyObject_CallMethod(pyGetChromeDriverModule, "get_chrome_driver", "s", versionString);
-
     if (!PyDict_Check(pyGetChromeDriverUrlResult))
     {
         lastErrorString = "DriverUrlResultNotAValiedDict";
@@ -293,6 +292,7 @@ int DownloadChromeDriver(const char *versionString, const char *driverPath)
     auto pyIsSUccess = PyDict_GetItemString(pyGetChromeDriverUrlResult, "is_success");
 
     std::string urlString;
+
     if (PyObject_IsTrue(pyIsSUccess))
     {
 
@@ -354,6 +354,7 @@ int DownloadChromeDriver(const char *versionString, const char *driverPath)
     }
 
     auto driverStorePath = std::filesystem::path(getChromeDriverTempDir) / "driver";
+
     Zipper zipper;
     if (!zipper.UnPackArchive(zipballName, driverStorePath.string()))
     {
@@ -363,16 +364,38 @@ int DownloadChromeDriver(const char *versionString, const char *driverPath)
     }
 
     std::string targetDriverFile;
-    for (const auto &entry : std::filesystem::directory_iterator(driverStorePath))
-    {
-        auto extension = LOWER(entry.path().extension().string());
 
-        if (extension == ".exe")
+    std::function<void(const std::filesystem::path &)> searchExeFile = [&](const auto &startDirectory) -> void
+    {
+        std::vector<std::filesystem::path> directies;
+
+        for (const auto &entry : std::filesystem::directory_iterator(startDirectory))
         {
-            targetDriverFile = std::filesystem::absolute(entry.path()).string();
-            break;
+            if (entry.is_directory())
+            {
+                directies.emplace_back(entry.path());
+            }
+
+            auto extension = LOWER(entry.path().extension().string());
+
+            if (extension == ".exe")
+            {
+                targetDriverFile = std::filesystem::absolute(entry.path()).string();
+                return;
+            }
         }
-    }
+
+        if (targetDriverFile.empty() && directies.size())
+        {
+            for (const auto &p : directies)
+            {
+                searchExeFile(p);
+            }
+        }
+        return;
+    };
+
+    searchExeFile(driverStorePath);
 
     if (targetDriverFile.empty())
     {
