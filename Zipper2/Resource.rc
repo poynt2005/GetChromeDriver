@@ -1,4 +1,0 @@
-#include "Resource.h"
-
-ID_7Z_DLL FILE "7z.dll"
-ID_7Z_EXE FILE "7z.exe"

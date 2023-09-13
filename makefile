@@ -1,16 +1,14 @@
 cc = gcc
 cxx = g++
-cflags = -I"C:\Users\SteveChung\AppData\Local\Programs\Python\Python310\include"
-ldflags = -L".\Zipper2" -L"C:\Users\SteveChung\AppData\Local\Programs\Python\Python310\libs" 
-libs = -lpython310 -lUrlmon -lZipper
+cflags = 
+ldflags = 
+libs = -lUrlMon
 
 dll:
-	python compile.py
-	windres Resource.rc -o Resource.o
-	$(cxx) -fPIC -shared $(cflags) -std=c++17 -O3 -DBUILDGCDAPI -c GetChromeDriver.cc -o GetChromeDriver.o
-	$(cxx) -fPIC -shared $(cflags) -c -O3 FindRuntimeFiles.cc -o FindRuntimeFiles.o
-	$(cxx) -shared $(ldflags) GetChromeDriver.o FindRuntimeFiles.o Resource.o -Wl,--out-implib,GetChromeDriver.lib -o GetChromeDriver.dll $(libs)
+	cd gocontext && mingw32-make && powershell -Command "echo F | xcopy /Y .\\GoContext.dll ..\\GoContext.dll"
+	$(cxx) -fPIC -std=c++17 $(cflags) -DBUILDGCDAPI -c GetChromeDriver.cc -o GetChromeDriver.o
+	$(cxx) -shared $(ldflags) GetChromeDriver.o -Wl,--out-implib,GetChromeDriver.lib -o GetChromeDriver.dll $(libs)
 
-test:
-	$(cc) -c test.c -o test.o
-	$(cc) -L"./" test.o -o test.exe -lGetChromeDriver
+main:
+	$(cc) -c GetDriver.c -o GetDriver.o
+	$(cc) -L"./" GetDriver.o -o GetDriver.exe -lGetChromeDriver

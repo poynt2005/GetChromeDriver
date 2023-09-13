@@ -1,3 +1,14 @@
 # GetChromeDriver
 
-## 利用 python 進行符合安裝版本 chromedriver
+## ~~利用 python 進行符合安裝版本 chromedriver~~
+
+## 更新: 全面使用 go 進行 chrome driver 抓取
+
+## 主程式
+
+GetDriver.c
+
+## 建置
+
+須安裝 go 開發環境 && MinGW-x64  
+裝完後，運行 make 即可
